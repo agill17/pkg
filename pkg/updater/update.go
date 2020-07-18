@@ -12,12 +12,22 @@ import (
 	"github.com/jenkins-x/go-scm/scm"
 )
 
-// Input is the configuration for updating a file in a repository.
-type Input struct {
+// UpdateYAMLInput is the configuration for updating a file in a repository.
+type UpdateYAMLInput struct {
+	Key      string // key - the key within the YAML file to be updated, use a dotted path
+	NewValue string // the new value to associate with the key
+	CommitInput
+}
+
+// UpdateFileInput is the configuration for updating a file in a repository.
+type UpdateFileInput struct {
+	Body []byte // replacement file contents
+	CommitInput
+}
+
+type CommitInput struct {
 	Repo               string           // e.g. my-org/my-repo
 	Filename           string           // relative path to the file in the repository
-	Key                string           // key - the key within the YAML file to be updated, use a dotted path
-	NewValue           string           // the new value to associate with the key
 	Branch             string           // e.g. main
 	BranchGenerateName string           // e.g. update-image-
 	CommitMessage      string           // This will be used for the commit to update the file
@@ -64,7 +74,7 @@ type Updater struct {
 
 // UpdateYAML does the job of fetching the existing file, updating it, and
 // then optionally creating a PR.
-func (u *Updater) UpdateYAML(ctx context.Context, input *Input) (*scm.PullRequest, error) {
+func (u *Updater) UpdateYAML(ctx context.Context, input *UpdateYAMLInput) (*scm.PullRequest, error) {
 	current, err := u.gitClient.GetFile(ctx, input.Repo, input.Branch, input.Filename)
 	if err != nil {
 		u.log.Errorw("failed to get file from repo", "error", err)
@@ -79,7 +89,7 @@ func (u *Updater) UpdateYAML(ctx context.Context, input *Input) (*scm.PullReques
 	if err != nil {
 		return nil, fmt.Errorf("failed to get branch head: %v", err)
 	}
-	newBranchName, err := u.createBranchIfNecessary(ctx, input, branchRef)
+	newBranchName, err := u.createBranchIfNecessary(ctx, input.CommitInput, branchRef)
 	if err != nil {
 		return nil, err
 	}
@@ -88,10 +98,35 @@ func (u *Updater) UpdateYAML(ctx context.Context, input *Input) (*scm.PullReques
 		return nil, fmt.Errorf("failed to update file: %w", err)
 	}
 	u.log.Debugw("updated file", "filename", input.Filename)
-	return u.createPRIfNecessary(ctx, input, newBranchName)
+	return u.createPRIfNecessary(ctx, input.CommitInput, newBranchName)
 }
 
-func (u *Updater) createBranchIfNecessary(ctx context.Context, input *Input, sourceRef string) (string, error) {
+// UpdateFile does the job of fetching the existing file, updating it, and
+// then optionally creating a PR.
+func (u *Updater) UpdateFile(ctx context.Context, input *UpdateFileInput) (*scm.PullRequest, error) {
+	current, err := u.gitClient.GetFile(ctx, input.Repo, input.Branch, input.Filename)
+	if err != nil {
+		u.log.Errorw("failed to get file from repo", "error", err)
+		return nil, err
+	}
+	u.log.Debugw("got existing file", "sha", current.Sha)
+	branchRef, err := u.gitClient.GetBranchHead(ctx, input.Repo, input.Branch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get branch head: %v", err)
+	}
+	newBranchName, err := u.createBranchIfNecessary(ctx, input.CommitInput, branchRef)
+	if err != nil {
+		return nil, err
+	}
+	err = u.gitClient.UpdateFile(ctx, input.Repo, newBranchName, input.Filename, input.CommitMessage, current.Sha, input.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update file: %w", err)
+	}
+	u.log.Debugw("updated file", "filename", input.Filename)
+	return u.createPRIfNecessary(ctx, input.CommitInput, newBranchName)
+}
+
+func (u *Updater) createBranchIfNecessary(ctx context.Context, input CommitInput, sourceRef string) (string, error) {
 	if input.BranchGenerateName == "" {
 		u.log.Debugw("no branchGenerateName configured, reusing source branch", "branch", input.Branch)
 		return input.Branch, nil
@@ -107,7 +142,7 @@ func (u *Updater) createBranchIfNecessary(ctx context.Context, input *Input, sou
 	return newBranchName, nil
 }
 
-func (u *Updater) createPRIfNecessary(ctx context.Context, input *Input, newBranchName string) (*scm.PullRequest, error) {
+func (u *Updater) createPRIfNecessary(ctx context.Context, input CommitInput, newBranchName string) (*scm.PullRequest, error) {
 	if input.Branch == newBranchName {
 		return nil, nil
 	}

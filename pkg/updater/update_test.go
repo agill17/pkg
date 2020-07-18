@@ -18,7 +18,7 @@ const (
 	testBranch     = "main"
 )
 
-func TestUpdate(t *testing.T) {
+func TestUpdateYAML(t *testing.T) {
 	testSHA := "980a0d5f19a64b4b30a87d4206aade58726b60e3"
 	m := mock.New(t)
 	m.AddFileContents(testGitHubRepo, testFilePath, testBranch, []byte("test:\n  image: old-image\n"))
@@ -26,7 +26,7 @@ func TestUpdate(t *testing.T) {
 	logger := zaptest.NewLogger(t, zaptest.Level(zap.WarnLevel)).Sugar()
 
 	updater := New(logger, m, NameGenerator(stubNameGenerator{"a"}))
-	input := makeInput()
+	input := makeUpdateYAMLInput()
 	pr, err := updater.UpdateYAML(context.Background(), input)
 	if err != nil {
 		t.Fatal(err)
@@ -46,11 +46,40 @@ func TestUpdate(t *testing.T) {
 	})
 	if pr.Link != "https://example.com/pull-request/1" {
 		t.Fatalf("link to PR is incorrect: got %#v, want %#v", pr.Link, "https://example.com/pull-request/1")
-
 	}
 }
 
-func TestUpdaterWithMissingFile(t *testing.T) {
+func TestUpdateFile(t *testing.T) {
+	testSHA := "980a0d5f19a64b4b30a87d4206aade58726b60e3"
+	m := mock.New(t)
+	m.AddFileContents(testGitHubRepo, testFilePath, testBranch, []byte("test:\n  image: old-image\n"))
+	m.AddBranchHead(testGitHubRepo, testBranch, testSHA)
+	logger := zaptest.NewLogger(t, zaptest.Level(zap.WarnLevel)).Sugar()
+
+	updater := New(logger, m, NameGenerator(stubNameGenerator{"a"}))
+	input := makeUpdateFileInput()
+	pr, err := updater.UpdateFile(context.Background(), input)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updated := m.GetUpdatedContents(testGitHubRepo, testFilePath, "test-branch-a")
+	if s := string(updated); s != string(input.Body) {
+		t.Fatalf("update failed, got %#v, want %#v", s, input.Body)
+	}
+	m.AssertBranchCreated(testGitHubRepo, "test-branch-a", testSHA)
+	m.AssertPullRequestCreated(testGitHubRepo, &scm.PullRequestInput{
+		Title: input.PullRequest.Title,
+		Body:  input.PullRequest.Body,
+		Head:  "test-branch-a",
+		Base:  testBranch,
+	})
+	if pr.Link != "https://example.com/pull-request/1" {
+		t.Fatalf("link to PR is incorrect: got %#v, want %#v", pr.Link, "https://example.com/pull-request/1")
+	}
+}
+
+func TestUpdateYAMLWithMissingFile(t *testing.T) {
 	testSHA := "980a0d5f19a64b4b30a87d4206aade58726b60e3"
 	m := mock.New(t)
 	m.AddFileContents(testGitHubRepo, testFilePath, testBranch, []byte("test:\n  image: old-image\n"))
@@ -61,7 +90,7 @@ func TestUpdaterWithMissingFile(t *testing.T) {
 	testErr := errors.New("missing file")
 	m.GetFileErr = testErr
 
-	_, err := updater.UpdateYAML(context.Background(), makeInput())
+	_, err := updater.UpdateYAML(context.Background(), makeUpdateYAMLInput())
 
 	if err != testErr {
 		t.Fatalf("got %s, want %s", err, testErr)
@@ -74,7 +103,7 @@ func TestUpdaterWithMissingFile(t *testing.T) {
 	m.AssertNoPullRequestsCreated()
 }
 
-func TestUpdaterWithBranchCreationFailure(t *testing.T) {
+func TestUpdateYAMLWithBranchCreationFailure(t *testing.T) {
 	testSHA := "980a0d5f19a64b4b30a87d4206aade58726b60e3"
 	m := mock.New(t)
 	m.AddFileContents(testGitHubRepo, testFilePath, testBranch, []byte("test:\n  image: old-image\n"))
@@ -85,7 +114,7 @@ func TestUpdaterWithBranchCreationFailure(t *testing.T) {
 	testErr := errors.New("can't create branch")
 	m.CreateBranchErr = testErr
 
-	_, err := updater.UpdateYAML(context.Background(), makeInput())
+	_, err := updater.UpdateYAML(context.Background(), makeUpdateYAMLInput())
 
 	if err.Error() != "failed to create branch: can't create branch" {
 		t.Fatalf("got %s, want %s", err, "failed to create branch: can't create branch")
@@ -98,7 +127,7 @@ func TestUpdaterWithBranchCreationFailure(t *testing.T) {
 	m.AssertNoPullRequestsCreated()
 }
 
-func TestUpdaterWithUpdateFileFailure(t *testing.T) {
+func TestUpdateYAMLWithUpdateFileFailure(t *testing.T) {
 	testSHA := "980a0d5f19a64b4b30a87d4206aade58726b60e3"
 	m := mock.New(t)
 	m.AddFileContents(testGitHubRepo, testFilePath, testBranch, []byte("test:\n  image: old-image\n"))
@@ -108,7 +137,7 @@ func TestUpdaterWithUpdateFileFailure(t *testing.T) {
 	updater := New(logger, m, NameGenerator(stubNameGenerator{"a"}))
 	testErr := errors.New("can't update file")
 	m.UpdateFileErr = testErr
-	input := makeInput()
+	input := makeUpdateYAMLInput()
 
 	_, err := updater.UpdateYAML(context.Background(), input)
 
@@ -123,7 +152,7 @@ func TestUpdaterWithUpdateFileFailure(t *testing.T) {
 	m.AssertNoPullRequestsCreated()
 }
 
-func TestUpdaterWithCreatePullRequestFailure(t *testing.T) {
+func TestUpdateYAMLWithCreatePullRequestFailure(t *testing.T) {
 	testSHA := "980a0d5f19a64b4b30a87d4206aade58726b60e3"
 	m := mock.New(t)
 	m.AddFileContents(testGitHubRepo, testFilePath, testBranch, []byte("test:\n  image: old-image\n"))
@@ -133,7 +162,7 @@ func TestUpdaterWithCreatePullRequestFailure(t *testing.T) {
 	updater := New(logger, m, NameGenerator(stubNameGenerator{"a"}))
 	testErr := errors.New("can't create pull-request")
 	m.CreatePullRequestErr = testErr
-	input := makeInput()
+	input := makeUpdateYAMLInput()
 
 	_, err := updater.UpdateYAML(context.Background(), input)
 
@@ -149,14 +178,14 @@ func TestUpdaterWithCreatePullRequestFailure(t *testing.T) {
 	m.AssertNoPullRequestsCreated()
 }
 
-func TestUpdaterWithNonMasterSourceBranch(t *testing.T) {
+func TestUpdateYAMLWithNonMasterSourceBranch(t *testing.T) {
 	testSHA := "980a0d5f19a64b4b30a87d4206aade58726b60e3"
 	m := mock.New(t)
 	m.AddFileContents(testGitHubRepo, testFilePath, "staging", []byte("test:\n  image: old-image\n"))
 	m.AddBranchHead(testGitHubRepo, "staging", testSHA)
 	logger := zaptest.NewLogger(t, zaptest.Level(zap.WarnLevel)).Sugar()
 
-	input := makeInput()
+	input := makeUpdateYAMLInput()
 	input.Branch = "staging"
 	updater := New(logger, m, NameGenerator(stubNameGenerator{"a"}))
 
@@ -187,18 +216,37 @@ func (s stubNameGenerator) PrefixedName(p string) string {
 	return p + s.name
 }
 
-func makeInput() *Input {
-	return &Input{
-		Repo:               testGitHubRepo,
-		Filename:           testFilePath,
-		Branch:             testBranch,
-		Key:                "test.image",
-		NewValue:           "test/my-test-image",
-		BranchGenerateName: "test-branch-",
-		CommitMessage:      "just a test commit",
-		PullRequest: PullRequestInput{
-			Title: "test pull-request",
-			Body:  "test pull-request body",
+func makeUpdateYAMLInput() *UpdateYAMLInput {
+	return &UpdateYAMLInput{
+		Key:      "test.image",
+		NewValue: "test/my-test-image",
+		CommitInput: CommitInput{
+			Repo:               testGitHubRepo,
+			Filename:           testFilePath,
+			Branch:             testBranch,
+			BranchGenerateName: "test-branch-",
+			CommitMessage:      "just a test commit",
+			PullRequest: PullRequestInput{
+				Title: "test pull-request",
+				Body:  "test pull-request body",
+			},
+		},
+	}
+}
+
+func makeUpdateFileInput() *UpdateFileInput {
+	return &UpdateFileInput{
+		Body: []byte("this is the new content"),
+		CommitInput: CommitInput{
+			Repo:               testGitHubRepo,
+			Filename:           testFilePath,
+			Branch:             testBranch,
+			BranchGenerateName: "test-branch-",
+			CommitMessage:      "just a test commit",
+			PullRequest: PullRequestInput{
+				Title: "test pull-request",
+				Body:  "test pull-request body",
+			},
 		},
 	}
 }
