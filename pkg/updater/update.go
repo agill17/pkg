@@ -15,7 +15,7 @@ import (
 // UpdateYAMLInput is the configuration for updating a file in a repository.
 type UpdateYAMLInput struct {
 	Key      string // key - the key within the YAML file to be updated, use a dotted path
-	NewValue string // the new value to associate with the key
+	NewValue interface{}
 	CommitInput
 }
 
@@ -85,20 +85,24 @@ func (u *Updater) UpdateYAML(ctx context.Context, input *UpdateYAMLInput) (*scm.
 	if err != nil {
 		return nil, err
 	}
+	return u.applyUpdate(ctx, input.CommitInput, current.Sha, updated)
+}
+
+func (u *Updater) applyUpdate(ctx context.Context, input CommitInput, currentSHA string, newBody []byte) (*scm.PullRequest, error) {
 	branchRef, err := u.gitClient.GetBranchHead(ctx, input.Repo, input.Branch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get branch head: %v", err)
 	}
-	newBranchName, err := u.createBranchIfNecessary(ctx, input.CommitInput, branchRef)
+	newBranchName, err := u.createBranchIfNecessary(ctx, input, branchRef)
 	if err != nil {
 		return nil, err
 	}
-	err = u.gitClient.UpdateFile(ctx, input.Repo, newBranchName, input.Filename, input.CommitMessage, current.Sha, updated)
+	err = u.gitClient.UpdateFile(ctx, input.Repo, newBranchName, input.Filename, input.CommitMessage, currentSHA, newBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update file: %w", err)
 	}
 	u.log.Debugw("updated file", "filename", input.Filename)
-	return u.createPRIfNecessary(ctx, input.CommitInput, newBranchName)
+	return u.createPRIfNecessary(ctx, input, newBranchName)
 }
 
 // UpdateFile does the job of fetching the existing file, updating it, and
@@ -109,21 +113,7 @@ func (u *Updater) UpdateFile(ctx context.Context, input *UpdateFileInput) (*scm.
 		u.log.Errorw("failed to get file from repo", "error", err)
 		return nil, err
 	}
-	u.log.Debugw("got existing file", "sha", current.Sha)
-	branchRef, err := u.gitClient.GetBranchHead(ctx, input.Repo, input.Branch)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get branch head: %v", err)
-	}
-	newBranchName, err := u.createBranchIfNecessary(ctx, input.CommitInput, branchRef)
-	if err != nil {
-		return nil, err
-	}
-	err = u.gitClient.UpdateFile(ctx, input.Repo, newBranchName, input.Filename, input.CommitMessage, current.Sha, input.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update file: %w", err)
-	}
-	u.log.Debugw("updated file", "filename", input.Filename)
-	return u.createPRIfNecessary(ctx, input.CommitInput, newBranchName)
+	return u.applyUpdate(ctx, input.CommitInput, current.Sha, input.Body)
 }
 
 func (u *Updater) createBranchIfNecessary(ctx context.Context, input CommitInput, sourceRef string) (string, error) {
