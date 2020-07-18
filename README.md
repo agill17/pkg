@@ -47,7 +47,7 @@ func main() {
 		},
 	}
 
-	pr, err = u.Update(context.Background(), &input)
+	pr, err := u.UpdateYAML(context.Background(), &input)
 	if err != nil {
 		log.Fatal(err)
 	}

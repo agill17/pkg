@@ -33,7 +33,6 @@ type PullRequestInput struct {
 var timeSeed = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 type logger interface {
-	Infow(msg string, keysAndValues ...interface{})
 	Errorw(msg string, keysAndValues ...interface{})
 	Debugw(msg string, keysAndValues ...interface{})
 }
