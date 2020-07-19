@@ -75,17 +75,27 @@ type Updater struct {
 // UpdateYAML does the job of fetching the existing file, updating it, and
 // then optionally creating a PR.
 func (u *Updater) UpdateYAML(ctx context.Context, input *UpdateYAMLInput) (*scm.PullRequest, error) {
+	return u.ApplyUpdateToFile(ctx, input.CommitInput, func(b []byte) ([]byte, error) {
+		return syaml.SetBytes(b, input.Key, input.NewValue)
+	})
+}
+
+type contentUpdater func([]byte) ([]byte, error)
+
+// ApplyUpdateToFile does the job of fetching the existing file, passing it to a
+// user-provided function, and optionally creating a PR.
+func (u *Updater) ApplyUpdateToFile(ctx context.Context, input CommitInput, f contentUpdater) (*scm.PullRequest, error) {
 	current, err := u.gitClient.GetFile(ctx, input.Repo, input.Branch, input.Filename)
 	if err != nil {
 		u.log.Errorw("failed to get file from repo", "error", err)
 		return nil, err
 	}
 	u.log.Debugw("got existing file", "sha", current.Sha)
-	updated, err := syaml.SetBytes(current.Data, input.Key, input.NewValue)
+	updated, err := f(current.Data)
 	if err != nil {
 		return nil, err
 	}
-	return u.applyUpdate(ctx, input.CommitInput, current.Sha, updated)
+	return u.applyUpdate(ctx, input, current.Sha, updated)
 }
 
 func (u *Updater) applyUpdate(ctx context.Context, input CommitInput, currentSHA string, newBody []byte) (*scm.PullRequest, error) {
