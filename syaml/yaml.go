@@ -1,6 +1,7 @@
 package syaml
 
 import (
+	"fmt"
 	"github.com/tidwall/sjson"
 	"sigs.k8s.io/yaml"
 )
@@ -12,6 +13,8 @@ import (
 // return "name: newname\n"
 func SetBytes(y []byte, path string, value interface{}) ([]byte, error) {
 	j, err := yaml.YAMLToJSON(y)
+	fmt.Println("in SetBytes, after yamlToJson")
+	fmt.Println(string(j))
 	if err != nil {
 		return nil, err
 	}
@@ -19,5 +22,8 @@ func SetBytes(y []byte, path string, value interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("in SetBytes, after SetBytes")
+	fmt.Println(string(updated))
+	
 	return yaml.JSONToYAML(updated)
 }
