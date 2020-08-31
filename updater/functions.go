@@ -1,7 +1,7 @@
 package updater
 
 import (
-	"github.com/gitops-tools/pkg/syaml"
+	"github.com/agill17/pkg/syaml"
 )
 
 // ReplaceContents is a ContentUpdater that replaces the content of file with the

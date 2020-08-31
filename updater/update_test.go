@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/gitops-tools/pkg/client/mock"
+	"github.com/agill17/pkg/client/mock"
 	"github.com/jenkins-x/go-scm/scm"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )

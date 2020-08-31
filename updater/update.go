@@ -9,8 +9,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/jenkins-x/go-scm/scm"
 
-	"github.com/gitops-tools/pkg/client"
-	"github.com/gitops-tools/pkg/names"
+	"github.com/agill17/pkg/client"
+	"github.com/agill17/pkg/names"
 )
 
 // ContentUpdater takes an existing body, it should transform it, and return the

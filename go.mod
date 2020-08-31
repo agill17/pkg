@@ -1,4 +1,4 @@
-module github.com/gitops-tools/pkg
+module github.com/agill17/pkg
 
 go 1.14
 
