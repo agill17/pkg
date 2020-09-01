@@ -3,8 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/jenkins-x/go-scm/scm"
 )
 
@@ -56,8 +54,6 @@ func (c *SCMClient) CreatePullRequest(ctx context.Context, repo string, inp *scm
 // If an HTTP error is returned by the upstream service, an error with the
 // response status code is returned.
 func (c *SCMClient) UpdateFile(ctx context.Context, repo, branch, path, message, previousSHA string, content []byte) error {
-	fmt.Println("in UpdateFile")
-	spew.Dump(string(content))
 	params := scm.ContentParams{
 		Message: message,
 		Data:    content,

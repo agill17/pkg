@@ -1,9 +1,7 @@
 package updater
 
 import (
-	"fmt"
 	"github.com/agill17/pkg/syaml"
-	"github.com/davecgh/go-spew/spew"
 )
 
 // ReplaceContents is a ContentUpdater that replaces the content of file with the
@@ -21,8 +19,6 @@ func ReplaceContents(b []byte) ContentUpdater {
 func UpdateYAML(key string, newValue interface{}) ContentUpdater {
 	return func(b []byte) ([]byte, error) {
 		data, err := syaml.SetBytes(b, key, newValue)
-		fmt.Println("in UpdateYAML")
-		spew.Dump(string(data))
 		return data, err
 	}
 }

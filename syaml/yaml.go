@@ -1,9 +1,8 @@
 package syaml
 
 import (
-	"fmt"
-	gyaml "github.com/ghodss/yaml"
 	"github.com/tidwall/sjson"
+	"sigs.k8s.io/yaml"
 )
 
 // SetBytes accepts a YAML body, a path and a new value, and updates the
@@ -12,9 +11,7 @@ import (
 // e.g. SetBytes([]byte("name: testing\n"), "name", "new name") would would
 // return "name: newname\n"
 func SetBytes(y []byte, path string, value interface{}) ([]byte, error) {
-	j, err := gyaml.YAMLToJSON(y)
-	fmt.Println("in SetBytes, after yamlToJson")
-	fmt.Println(string(j))
+	j, err := yaml.YAMLToJSON(y)
 	if err != nil {
 		return nil, err
 	}
@@ -22,8 +19,5 @@ func SetBytes(y []byte, path string, value interface{}) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("in SetBytes, after SetBytes")
-	fmt.Println(string(updated))
-
-	return gyaml.JSONToYAML(updated)
+	return yaml.JSONToYAML(updated)
 }
